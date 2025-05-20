@@ -95,10 +95,21 @@ class SettingsScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Authentication is bypassed for presentation')),
-              );
+            onTap: () async {
+              final bool success = await authViewModel.signOut();
+              
+              if (success) {
+                // Navigate to login screen and clear navigation stack
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                }
+              } else {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(authViewModel.error ?? 'Failed to logout')),
+                  );
+                }
+              }
             },
           ),
         ],

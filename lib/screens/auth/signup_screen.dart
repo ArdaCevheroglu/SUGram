@@ -84,7 +84,10 @@ class _SignupScreenState extends State<SignupScreen> {
         year: int.tryParse(_yearController.text.trim()),
       );
 
-      if (!success && mounted) {
+      if (success && mounted) {
+        // Navigate to main screen and clear navigation stack
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      } else if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authViewModel.error ?? 'Signup failed'),

@@ -321,15 +321,15 @@ class PostCard extends StatelessWidget {
           ],
           
           // Comments preview
-          if (post.comments.isNotEmpty) ...[
+          if (post.commentCount > 0) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
               child: GestureDetector(
                 onTap: () => _navigateToComments(context),
                 child: Text(
-                  post.comments.length == 1
+                  post.commentCount == 1
                       ? 'View 1 comment'
-                      : 'View all ${post.comments.length} comments',
+                      : 'View all ${post.commentCount} comments',
                   style: const TextStyle(
                     color: AppTheme.secondaryTextColor,
                   ),

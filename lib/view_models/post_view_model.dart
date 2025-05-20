@@ -108,6 +108,17 @@ class PostViewModel extends ChangeNotifier {
       return null;
     }
   }
+  
+  // Get comments for a post
+  Future<List<CommentModel>> getPostComments(String postId) async {
+    try {
+      return await _postService.getPostComments(postId);
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return [];
+    }
+  }
 
   // Like a post
   Future<void> likePost(String postId, UserModel currentUser) async {
@@ -194,7 +205,7 @@ class PostViewModel extends ChangeNotifier {
   Future<void> likeComment(
       String postId, String commentId, UserModel currentUser) async {
     try {
-      await _postService.likeComment(postId, commentId, currentUser.id);
+      await _postService.likeComment(commentId, currentUser.id);
 
       // Update comment in posts
       _updateCommentLike(postId, commentId, currentUser.id, true);
@@ -210,7 +221,7 @@ class PostViewModel extends ChangeNotifier {
   Future<void> unlikeComment(
       String postId, String commentId, String userId) async {
     try {
-      await _postService.unlikeComment(postId, commentId, userId);
+      await _postService.unlikeComment(commentId, userId);
 
       // Update comment in posts
       _updateCommentLike(postId, commentId, userId, false);
@@ -285,9 +296,10 @@ class PostViewModel extends ChangeNotifier {
     // Update in feed posts
     for (int i = 0; i < _feedPosts.length; i++) {
       if (_feedPosts[i].id == postId) {
-        List<CommentModel> updatedComments = List.from(_feedPosts[i].comments);
-        updatedComments.add(comment);
-        _feedPosts[i] = _feedPosts[i].copyWith(comments: updatedComments);
+        // Increment comment count
+        _feedPosts[i] = _feedPosts[i].copyWith(
+          commentCount: _feedPosts[i].commentCount + 1
+        );
         break;
       }
     }
@@ -295,76 +307,23 @@ class PostViewModel extends ChangeNotifier {
     // Update in user posts
     for (int i = 0; i < _userPosts.length; i++) {
       if (_userPosts[i].id == postId) {
-        List<CommentModel> updatedComments = List.from(_userPosts[i].comments);
-        updatedComments.add(comment);
-        _userPosts[i] = _userPosts[i].copyWith(comments: updatedComments);
+        // Increment comment count
+        _userPosts[i] = _userPosts[i].copyWith(
+          commentCount: _userPosts[i].commentCount + 1
+        );
         break;
       }
     }
   }
 
   // Helper method to update comment like in posts
+  // Note: Since comments are now stored in a separate collection,
+  // we don't need to update the post model when a comment's likes change.
+  // This method is now a no-op, but we keep it for compatibility.
   void _updateCommentLike(
       String postId, String commentId, String userId, bool isLiked) {
-    // Update in feed posts
-    for (int i = 0; i < _feedPosts.length; i++) {
-      if (_feedPosts[i].id == postId) {
-        List<CommentModel> updatedComments = _feedPosts[i].comments.map((comment) {
-          if (comment.id == commentId) {
-            List<String> updatedLikes = List.from(comment.likes);
-            if (isLiked) {
-              if (!updatedLikes.contains(userId)) {
-                updatedLikes.add(userId);
-              }
-            } else {
-              updatedLikes.remove(userId);
-            }
-            return CommentModel(
-              id: comment.id,
-              userId: comment.userId,
-              username: comment.username,
-              userProfileImageUrl: comment.userProfileImageUrl,
-              text: comment.text,
-              likes: updatedLikes,
-              createdAt: comment.createdAt,
-            );
-          }
-          return comment;
-        }).toList();
-        _feedPosts[i] = _feedPosts[i].copyWith(comments: updatedComments);
-        break;
-      }
-    }
-
-    // Update in user posts
-    for (int i = 0; i < _userPosts.length; i++) {
-      if (_userPosts[i].id == postId) {
-        List<CommentModel> updatedComments = _userPosts[i].comments.map((comment) {
-          if (comment.id == commentId) {
-            List<String> updatedLikes = List.from(comment.likes);
-            if (isLiked) {
-              if (!updatedLikes.contains(userId)) {
-                updatedLikes.add(userId);
-              }
-            } else {
-              updatedLikes.remove(userId);
-            }
-            return CommentModel(
-              id: comment.id,
-              userId: comment.userId,
-              username: comment.username,
-              userProfileImageUrl: comment.userProfileImageUrl,
-              text: comment.text,
-              likes: updatedLikes,
-              createdAt: comment.createdAt,
-            );
-          }
-          return comment;
-        }).toList();
-        _userPosts[i] = _userPosts[i].copyWith(comments: updatedComments);
-        break;
-      }
-    }
+    // No need to update the post model since comments are in a separate collection
+    // The comment likes are updated directly in the comments collection by the service
   }
 
   // Clear error

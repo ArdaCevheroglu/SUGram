@@ -52,7 +52,7 @@ class PostGridItem extends StatelessWidget {
           ),
           
           // Overlay with likes and comments count
-          if (post.likes.isNotEmpty || post.comments.isNotEmpty)
+          if (post.likes.isNotEmpty || post.commentCount > 0)
             Positioned(
               bottom: 0,
               left: 0,
@@ -81,9 +81,9 @@ class PostGridItem extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (post.likes.isNotEmpty && post.comments.isNotEmpty)
+                    if (post.likes.isNotEmpty && post.commentCount > 0)
                       const SizedBox(width: 8.0),
-                    if (post.comments.isNotEmpty) ...[
+                    if (post.commentCount > 0) ...[
                       const Icon(
                         Icons.chat_bubble,
                         color: Colors.white,
@@ -91,7 +91,7 @@ class PostGridItem extends StatelessWidget {
                       ),
                       const SizedBox(width: 4.0),
                       Text(
-                        post.comments.length.toString(),
+                        post.commentCount.toString(),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12.0,

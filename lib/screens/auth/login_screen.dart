@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isGoogleSigningIn = false;
 
   @override
   void dispose() {
@@ -33,20 +34,81 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
-      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
-      
-      final success = await authViewModel.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      try {
+        final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+        
+        final success = await authViewModel.signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
 
+        if (!success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authViewModel.error ?? 'Login failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else if (success && mounted) {
+          // Log successful auth
+          print('Login successful, user: ${authViewModel.currentUser?.username}');
+          
+          // Force navigation to main screen
+          print('Manually navigating to main screen after successful login');
+          Navigator.of(context).pushReplacementNamed('/main');
+        }
+      } catch (e) {
+        print('Unexpected error during login: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+  
+  Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isGoogleSigningIn = true;
+    });
+    
+    try {
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final success = await authViewModel.signInWithGoogle();
+      
       if (!success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authViewModel.error ?? 'Login failed'),
+            content: Text(authViewModel.error ?? 'Google Sign-In failed'),
             backgroundColor: Colors.red,
           ),
         );
+      } else if (success && mounted) {
+        // Log successful auth
+        print('Google sign-in successful, user: ${authViewModel.currentUser?.username}');
+        
+        // Force navigation to main screen
+        print('Manually navigating to main screen after successful Google sign-in');
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Sign-In failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleSigningIn = false;
+        });
       }
     }
   }
@@ -54,6 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
+    final isLoading = authViewModel.isLoading || _isGoogleSigningIn;
     
     return Scaffold(
       body: SafeArea(
@@ -88,6 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                     validator: Validators.validateEmail,
+                    enabled: !isLoading,
                   ),
                   const SizedBox(height: 16.0),
                   
@@ -103,11 +167,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? Icons.visibility_off
                               : Icons.visibility,
                         ),
-                        onPressed: _togglePasswordVisibility,
+                        onPressed: isLoading ? null : _togglePasswordVisibility,
                       ),
                     ),
                     obscureText: _obscurePassword,
                     validator: Validators.validatePassword,
+                    enabled: !isLoading,
                   ),
                   const SizedBox(height: 8.0),
                   
@@ -115,8 +180,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // TODO: Navigate to forgot password screen
+                      onPressed: isLoading ? null : () {
+                        // Show a dialog to enter email for password reset
+                        showDialog(
+                          context: context,
+                          builder: (context) => _buildForgotPasswordDialog(context),
+                        );
                       },
                       child: const Text('Forgot password?'),
                     ),
@@ -125,11 +194,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   // Login button
                   ElevatedButton(
-                    onPressed: authViewModel.isLoading ? null : _login,
+                    onPressed: isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12.0),
                     ),
-                    child: authViewModel.isLoading
+                    child: isLoading && !_isGoogleSigningIn
                         ? const SizedBox(
                             height: 20,
                             width: 20,
@@ -142,23 +211,84 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16.0),
                   
+                  // Divider with "OR" text
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade400)),
+                    ],
+                  ),
+                  const SizedBox(height: 16.0),
+                  
+                  // Google Sign-in Button
+                  OutlinedButton.icon(
+                    onPressed: isLoading ? null : _loginWithGoogle,
+                    icon: _isGoogleSigningIn
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.0,
+                            ),
+                          )
+                        : const Icon(Icons.login),
+                    label: const Text('Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  
                   // Signup link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("Don't have an account?"),
                       TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const SignupScreen(),
-                            ),
-                          );
-                        },
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SignupScreen(),
+                                  ),
+                                );
+                              },
                         child: const Text('Sign up'),
                       ),
                     ],
+                  ),
+                  
+                  // Demo account (for development only)
+                  const Divider(height: 30),
+                  const Text('Demo Account', 
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            _emailController.text = 'demo@sabanciuniv.edu';
+                            _passwordController.text = 'demo123456';
+                            _login();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade700,
+                    ),
+                    child: const Text('Use Demo Account'),
                   ),
                 ],
               ),
@@ -166,6 +296,65 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+  
+  Widget _buildForgotPasswordDialog(BuildContext context) {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    
+    return AlertDialog(
+      title: const Text('Reset Password'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: emailController,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            hintText: 'Enter your email address',
+          ),
+          keyboardType: TextInputType.emailAddress,
+          validator: Validators.validateEmail,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () async {
+            if (formKey.currentState!.validate()) {
+              Navigator.pop(context);
+              
+              final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+              
+              try {
+                await authViewModel.resetPassword(emailController.text.trim());
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password reset email sent. Check your inbox.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to send reset email: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            }
+          },
+          child: const Text('Send Reset Link'),
+        ),
+      ],
     );
   }
 }

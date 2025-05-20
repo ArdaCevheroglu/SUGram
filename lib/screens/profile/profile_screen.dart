@@ -25,7 +25,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // Load profile data when screen initializes
     _loadProfile();
+  }
+  
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload when userId changes - important when viewing different profiles
+    if (oldWidget.userId != widget.userId) {
+      _loadProfile();
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -37,23 +47,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userViewModel = Provider.of<UserViewModel>(context, listen: false);
     final postViewModel = Provider.of<PostViewModel>(context, listen: false);
 
-    // If userId is provided, load that user's profile, otherwise load current user's profile
-    final String userId = widget.userId ?? authViewModel.currentUser!.id;
+    try {
+      // Make sure we have a current user
+      if (authViewModel.currentUser == null) {
+        // If no current user, try to refresh user data
+        await authViewModel.refreshUserData();
+        
+        // If still no current user, return to login
+        if (authViewModel.currentUser == null && mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          return;
+        }
+      }
 
-    await userViewModel.getUserById(userId);
-    await postViewModel.getUserPosts(userId);
+      // If userId is provided, load that user's profile, otherwise load current user's profile
+      final String userId = widget.userId ?? authViewModel.currentUser!.id;
+      
+      // Log which profile we're loading - useful for debugging
+      print('Loading profile for user ID: $userId (widget.userId=${widget.userId})');
 
-    setState(() {
-      _isLoading = false;
-    });
+      // Load profile data for this specific user
+      await userViewModel.getUserById(userId);
+      await postViewModel.getUserPosts(userId);
+    } catch (e) {
+      // In case of any errors, we'll show the fallback UI
+      print('Error loading profile: $e');
+    } finally {
+      if (mounted) { // Check if widget is still mounted before calling setState
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _followUser(UserModel currentUser) async {
     final userViewModel = Provider.of<UserViewModel>(context, listen: false);
     
+    // Simply update current user's following list locally
+    List<String> updatedFollowing = List.from(currentUser.following);
+    if (userViewModel.profileUser != null && !updatedFollowing.contains(userViewModel.profileUser!.id)) {
+      updatedFollowing.add(userViewModel.profileUser!.id);
+    }
+    
+    // Just trigger a UI refresh with the updated following state
+    setState(() {});
+    
+    // Then do the actual Firestore update in the background
     if (userViewModel.profileUser != null) {
-      await userViewModel.followUser(
-        currentUser: currentUser,
+      userViewModel.followUser(
+        currentUser: currentUser.copyWith(following: updatedFollowing),
         targetUserId: userViewModel.profileUser!.id,
       );
     }
@@ -62,8 +105,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _unfollowUser(UserModel currentUser) async {
     final userViewModel = Provider.of<UserViewModel>(context, listen: false);
     
+    // Simply update current user's following list locally
+    List<String> updatedFollowing = List.from(currentUser.following);
     if (userViewModel.profileUser != null) {
-      await userViewModel.unfollowUser(
+      updatedFollowing.remove(userViewModel.profileUser!.id);
+    }
+    
+    // Just trigger a UI refresh with the updated following state
+    setState(() {});
+    
+    // Then do the actual Firestore update in the background
+    if (userViewModel.profileUser != null) {
+      userViewModel.unfollowUser(
         currentUserId: currentUser.id,
         targetUserId: userViewModel.profileUser!.id,
       );
@@ -106,6 +159,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     // For presentation, create a mock profile if the real one isn't available
     if (profileUser == null || currentUser == null) {
+      // Don't try to refresh auth data here, it can cause setState issues
+      // Create a mock user for demonstration purposes
       final mockUser = UserModel(
         id: 'mock-profile-id',
         email: 'demo@sabanciuniv.edu',
@@ -118,6 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         followers: List.generate(125, (index) => 'follower-$index'),
         following: List.generate(84, (index) => 'following-$index'),
         isVerified: true,
+        createdAt: DateTime.now(),
       );
       
       return _buildProfileUI(
@@ -129,9 +185,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
+    // Check if this is the current user's profile
     final bool isCurrentUser = profileUser.id == currentUser.id;
+    
+    // Determine follow state based on current user's following list
     final bool isFollowing = currentUser.following.contains(profileUser.id);
-
+    
     return _buildProfileUI(profileUser, currentUser, isCurrentUser, isFollowing, context);
   }
   
@@ -268,7 +327,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           user: profileUser,
                                         ),
                                       ),
-                                    ).then((_) => _loadProfile());
+                                    ).then((_) {
+                                      if (mounted) {
+                                        _loadProfile();
+                                      }
+                                    });
                                   },
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppTheme.textColor,

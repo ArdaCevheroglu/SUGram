@@ -1,0 +1,67 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the file size is within limits
+    function isValidSize(maxSizeMB) {
+      return request.resource.size <= maxSizeMB * 1024 * 1024;
+    }
+    
+    // Check if the file has an image content type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // User profile pictures - more permissive for testing
+    match /profile_images/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      // Remove the isImage check temporarily as it's causing issues
+      allow write: if isAuthenticated() && 
+                    request.auth.uid == userId && 
+                    isValidSize(5); // 5MB limit
+    }
+    
+    // Post images
+    match /posts/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                     request.auth.uid == userId && 
+                     isImage() && 
+                     isValidSize(10); // 10MB limit
+      allow update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Event images
+    match /events/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+                     request.auth.uid == userId && 
+                     isImage() && 
+                     isValidSize(10); // 10MB limit
+      allow update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Message attachments
+    match /messages/{userId}/{fileName} {
+      // Only sender and recipient can access message attachments
+      allow read: if isAuthenticated() && 
+                   (request.auth.uid == resource.metadata.senderId || 
+                    request.auth.uid == resource.metadata.receiverId);
+      
+      allow create: if isAuthenticated() && 
+                     request.auth.uid == userId && 
+                     isValidSize(20); // 20MB limit
+      
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

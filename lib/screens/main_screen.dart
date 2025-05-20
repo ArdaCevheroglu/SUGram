@@ -18,23 +18,35 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const SearchScreen(),
-    const EventsScreen(),
-    const NotificationsScreen(),
-    // ProfileScreen will be created dynamically with the current user's ID
-    const Placeholder(),
-  ];
+  // Don't make screens final so they can be recreated when account changes
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeScreens();
+  }
+  
+  void _initializeScreens() {
+    // Create the screens
+    _screens = [
+      const HomeScreen(),
+      const SearchScreen(),
+      const EventsScreen(),
+      const NotificationsScreen(),
+      const ProfileScreen(), // Profile screen for current user
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final notificationViewModel = Provider.of<NotificationViewModel>(context);
     
-    // Update the profile screen with the current user's ID
-    if (authViewModel.currentUser != null) {
-      _screens[4] = ProfileScreen(userId: authViewModel.currentUser!.id);
+    // Important: When user clicks profile tab, ensure it always shows THEIR profile
+    if (_currentIndex == 4 && authViewModel.currentUser != null) {
+      // Force recreation of profile screen with null userId (which defaults to current user)
+      _screens[4] = const ProfileScreen();
     }
     
     return Scaffold(
@@ -45,6 +57,11 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
+          // If selecting the profile tab, ensure it's always the current user's profile
+          if (index == 4 && authViewModel.currentUser != null) {
+            _screens[4] = const ProfileScreen();
+          }
+          
           setState(() {
             _currentIndex = index;
           });

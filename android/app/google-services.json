@@ -1,0 +1,45 @@
+{
+  "project_info": {
+    "project_number": "507921827121",
+    "project_id": "sugram-ios",
+    "storage_bucket": "sugram-ios.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:507921827121:android:3687f57fc2fda956a2dc10",
+        "android_client_info": {
+          "package_name": "com.su.sugram"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "507921827121-u6s3id1fvd6gvsp0t67mkdvspqc62jnm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMi4LFPStM2KHEJVOGTlb_zJ-l7piLENw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "507921827121-u6s3id1fvd6gvsp0t67mkdvspqc62jnm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "507921827121-u6s3id1fvd6gvsp0t67mkdvspqc62jnm.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.su.sugram"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

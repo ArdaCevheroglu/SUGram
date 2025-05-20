@@ -24,23 +24,17 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Create mock user for presentation instead of getting from auth service
-      _currentUser = UserModel(
-        id: 'mock-user-id',
-        email: 'student@sabanciuniv.edu',
-        username: 'su_student',
-        fullName: 'SU Student',
-        profileImageUrl: '',
-        bio: 'Computer Science student at Sabancı University',
-        department: 'Computer Science',
-        year: 2023,
-        followers: [],
-        following: [],
-        isVerified: true,
-      );
+      // Check if there's a current Firebase user and get their data
+      if (_authService.currentUser != null) {
+        _currentUser = await _authService.getCurrentUserData();
+        print('User initialized: ${_currentUser?.username}');
+      } else {
+        print('No current Firebase user');
+      }
       _error = null;
     } catch (e) {
       _error = e.toString();
+      print('Auth initialization error: $_error');
     }
 
     _isLoading = false;
@@ -91,10 +85,41 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      print('Attempting to sign in user: $email');
       _currentUser = await _authService.signIn(
         email: email,
         password: password,
       );
+      
+      if (_currentUser == null) {
+        _error = 'Authentication succeeded but user data could not be loaded';
+        print('Sign-in error: $_error');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+      
+      print('User signed in successfully: ${_currentUser?.username}');
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      print('Sign-in error: $_error');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+  
+  // Sign in with Google
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _currentUser = await _authService.signInWithGoogle();
 
       _isLoading = false;
       notifyListeners();
@@ -114,14 +139,38 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _authService.signOut();
+      print('AuthViewModel: Signing out user');
+      
+      // Clear all user-related data from memory first
+      String? prevUserId = _currentUser?.id;
+      print('Signing out user: ${_currentUser?.username} ($prevUserId)');
       _currentUser = null;
-
+      
+      // Then sign out from Firebase
+      await _authService.signOut();
+      
+      // Force navigation to login screen by calling signOut on FirebaseAuth directly
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (e) {
+        print('Additional sign out error: $e');
+      }
+      
+      // Also clear user data in other view models if needed
+      // This can be done through a shared event bus or by directly accessing
+      // the view models if they're accessible
+      
+      print('AuthViewModel: User signed out successfully');
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
       _error = e.toString();
+      print('AuthViewModel: Error signing out: $_error');
+      
+      // Still set current user to null to force UI to login screen
+      _currentUser = null;
+      
       _isLoading = false;
       notifyListeners();
       return false;
@@ -136,6 +185,67 @@ class AuthViewModel extends ChangeNotifier {
 
     try {
       await _authService.resetPassword(email);
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+  
+  // Send email verification
+  Future<bool> sendEmailVerification() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.sendEmailVerification();
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+  
+  // Change password
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.changePassword(currentPassword, newPassword);
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+  
+  // Delete account
+  Future<bool> deleteAccount(String password) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.deleteAccount(password);
+      _currentUser = null;
 
       _isLoading = false;
       notifyListeners();
@@ -172,10 +282,30 @@ class AuthViewModel extends ChangeNotifier {
   // Refresh current user data
   Future<void> refreshUserData() async {
     try {
+      // Set loading state
+      _isLoading = true;
+      notifyListeners();
+      
+      // Check if Firebase has a current user
+      if (_authService.currentUser == null) {
+        print('Cannot refresh user data: No Firebase user');
+        _currentUser = null;
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+      
+      // Get updated user data
       _currentUser = await _authService.getCurrentUserData();
+      print('User data refreshed: ${_currentUser?.username}');
+      
+      // Clear loading and notify
+      _isLoading = false;
       notifyListeners();
     } catch (e) {
       _error = e.toString();
+      print('Error refreshing user data: $_error');
+      _isLoading = false;
       notifyListeners();
     }
   }

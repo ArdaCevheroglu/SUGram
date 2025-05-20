@@ -32,12 +32,21 @@ class UserViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Clear cached user first to avoid stale data
+      _profileUser = null;
+      
+      // Fetch fresh data from Firestore
       _profileUser = await _userService.getUserById(userId);
+      
+      // Log for debugging
+      print('Fetched user: ${_profileUser?.username} (${_profileUser?.id})');
+      
       _isLoading = false;
       notifyListeners();
       return _profileUser;
     } catch (e) {
       _error = e.toString();
+      print('Error fetching user: $e');
       _isLoading = false;
       notifyListeners();
       return null;
@@ -92,6 +101,7 @@ class UserViewModel extends ChangeNotifier {
     required String targetUserId,
   }) async {
     try {
+      // Update in Firestore
       await _userService.followUser(
         currentUserId: currentUser.id,
         targetUserId: targetUserId,
@@ -113,6 +123,11 @@ class UserViewModel extends ChangeNotifier {
       );
 
       notifyListeners();
+      
+      // Instead of trying to refresh the auth view model directly,
+      // just log that this should be done in the UI layer
+      print('Current user\'s following list was updated - UI should refresh');
+      
       return true;
     } catch (e) {
       _error = e.toString();
@@ -139,6 +154,9 @@ class UserViewModel extends ChangeNotifier {
         _profileUser = _profileUser!.copyWith(followers: updatedFollowers);
       }
 
+      // Log that user's following was updated
+      print('Current user\'s following list was updated after unfollow - UI should refresh');
+      
       notifyListeners();
       return true;
     } catch (e) {
