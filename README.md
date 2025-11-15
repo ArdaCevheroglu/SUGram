@@ -60,4 +60,4 @@ SUGram is the **first social media platform dedicated to connecting all Sabancı
 ## **Challenges**  
 - **Scalability & Performance:** Efficient database management and server optimization  
 - **Security:** Implementing a secure authentication system to protect user data and privacy  
-- **UI/UX Design:** Ensuring an intuitive and engaging user interface  
+- **UI/UX Design:** Ensuring an intuitive and engaging user interface.
